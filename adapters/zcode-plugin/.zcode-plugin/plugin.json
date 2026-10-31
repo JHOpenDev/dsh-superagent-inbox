@@ -1,0 +1,10 @@
+{
+  "name": "deepseek-harness",
+  "version": "0.1.0",
+  "description": "Super-agent runtime for ZCode: two-layer Router/Worker architecture, event-driven triggers, subscription pass-through, chain-of-recall state, and a watchdog — adapted from the DeepSeek Harness 'Super-agent' design.",
+  "author": {
+    "name": "JH × DeepSeek Harness (study adaptation)"
+  },
+  "skills": "./skills",
+  "commands": "./commands"
+}
