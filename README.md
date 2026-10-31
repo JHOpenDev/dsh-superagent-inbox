@@ -86,7 +86,7 @@ Super-agent 用四个特征回应：**连续**（跨信道只有一个 Agent）�
 前置：DeepSeek Harness `dsh ^0.2.1-alpha.2`、Node `^22.19 || >=24`、pnpm。
 
 ```bash
-git clone https://github.com/jianhaiyu-dot/dsh-superagent-inbox.git
+git clone https://github.com/JHOpenDev/dsh-superagent-inbox.git
 cd dsh-superagent-inbox
 pnpm install && pnpm check      # typecheck + 全部测试 + 构建 lib/
 ```
