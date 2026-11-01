@@ -126,12 +126,22 @@ cat $ROOT/ops/out/*.json
 
 ## 5. 验证
 
+**单元与构建**：`pnpm check`（tsc + vitest + tsdown）1202/1204 通过；唯一失败项是上游 `environment.spec` 的 git 报错文案断言（本机 git 文案差异，未修改的上游基线同样失败）。新增 `tests/inbox.spec.ts` 7 项全绿。
+
+**真实运行时端到端**（DeepSeek Harness `dsh 0.2.1-rc.3`，专用 superagent profile）：
+
 ```text
-pnpm check（typecheck + vitest + tsdown build）
-1203 / 1204 通过；唯一失败项 environment.spec 的 git 报错文案断言，
-系本机 git 2.42 文案与上游断言的差异，在未修改的上游基线上同样失败，与本插件无关。
-新增 tests/inbox.spec.ts 7 项全绿：翻译/幂等游标/白名单强度/回复幂等/线程上下文分页/注册与健康/准入表。
+收件箱投放 m-015 → Trigger 接收(移入 done/) → 评估接单(白名单+to:agent=explicit)
+→ 创建工单 → Worker 会话(bash/fs/gh 可用) → 修改 README → 提交分支
+→ PR #1 创建 → out/ 收到交付回复(≤100词, 附 PR 链接)
 ```
+
+期间同样验证了：同 Thread 追问被评估按"同一请求已由工单承接"去重；显式停止指令经评估收回授权；
+纯闲聊被两级过滤安静丢弃（面板可见 filtered 审计）。
+
+**版本要求（重要）**：bundle 依赖的 `@deepseek-ai/dsh-*` 工具包必须与运行时 DSH 版本一致——
+加载器会禁用版本不匹配的预设插件行（症状：Worker 会话没有 bash/fs/gh 工具）。本仓库全部锁定
+`0.2.1-rc.3` 并把它们放进 `dependencies`；使用其他 DSH 版本时请同步调整。
 
 ## 6. ZCode 适配器（adapters/zcode-plugin）
 
