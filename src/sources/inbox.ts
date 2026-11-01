@@ -20,8 +20,8 @@ export const INBOX_AGENT_FROM = 'dsh-superagent'
 const PAGE_SIZE = 50
 
 const ConfigSchema = z.object({
-  /** Absolute path of the inbox root; each configured conversation is `<root>/<id>/in` and `<root>/<id>/out`. */
-  root: z.string().trim().min(1),
+  /** Absolute path of the inbox root; each configured conversation is `<root>/<id>/in` and `<root>/<id>/out`. Empty waits for the operator. */
+  root: z.string().trim().default(''),
   /** The name a message's `to` field must carry to address the agent; `agent` by default. */
   agentName: z.string().trim().min(1).default('agent'),
   conversations: z.array(z.object({
@@ -239,6 +239,7 @@ async function watch(ctx: SourceContext, signal: AbortSignal): Promise<void> {
   while (!signal.aborted) {
     const config = ctx.config<InboxConfig>('inbox')
     if (!config) ctx.report('inbox', health('paused', 'sourceOff'))
+    else if (!config.root) ctx.report('inbox', health('paused', 'inboxRootUnset'))
     else {
       const at = new Date().toISOString()
       try {

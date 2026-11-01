@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import { expect, it } from 'vitest'
-import { ROUTER_PRESET, WORKER_PRESET } from '../src/app/sessions.ts'
+import { ROUTER_PRESET } from '../src/app/sessions.ts'
 
 interface Row { id?: string; name: string; disabled?: unknown; config?: Record<string, unknown> & { plugins?: Row[] } | Row[] }
 /** The patch as DSH reads it: Cordis's include plugin parses `!!js` scalars, and applies the inserts to an entry list. */
@@ -30,8 +30,9 @@ it('defines the worker preset Executor Sessions run under, with a shell that mov
   const rows = await patched()
   expect(rows.map(row => row.id)).toEqual(['dsh-superagent', 'dsh-superagent-github', 'dsh-superagent-feishu', 'dsh-superagent-inbox',
     'dsh-superagent-worker-preset', 'dsh-superagent-router-preset'])
-  const preset = presetOf(rows, WORKER_PRESET)
-  expect(preset.id).toBe(WORKER_PRESET)
+  // The patch still defines the worker preset rows for hosts that resolve them; WORKER_PRESET itself is 'standard'.
+  const preset = presetOf(rows, 'dsh-superagent-worker')
+  expect(preset.id).toBe('dsh-superagent-worker')
   const plugins = flat(preset.plugins)
   const named = (name: string) => plugins.filter(row => row.name === name).map(row => row.config)
   expect(named('@deepseek-ai/dsh-bash-sandbox')).toEqual([{ timeoutMs: 5000, maxTimeoutMs: 5000 }])
@@ -53,7 +54,7 @@ it('defines the worker preset Executor Sessions run under, with a shell that mov
 
 it('defines the router preset the main Session runs under: the worker\'s 5-second shell and job waits, and only the tools it uses', async () => {
   const rows = await patched()
-  const router = presetOf(rows, ROUTER_PRESET), worker = presetOf(rows, WORKER_PRESET)
+  const router = presetOf(rows, ROUTER_PRESET), worker = presetOf(rows, 'dsh-superagent-worker')
   expect(router.order).toBe(91)
   const plugins = flat(router.plugins)
   const named = (preset: Row[], name: string) => preset.filter(row => row.name === name).map(row => row.config)

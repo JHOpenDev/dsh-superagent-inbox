@@ -7,6 +7,7 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
 import type { UserMessage } from '@deepseek-ai/dsh-llm'
 import { renderPrompt } from '@deepseek-ai/dsh-system-prompt'
+import { WORKER_PRESET } from '../src/app/sessions.ts'
 import { Runtime } from '../src/app/runtime.ts'
 import { jobRegistry } from './fixtures/host.ts'
 import { evalsHealth } from '../src/app/views/overview.ts'
@@ -1672,10 +1673,10 @@ it('restarts a worker whose shell job the host stop ended with the recovery note
   expect(recovered.inputs).toEqual([expect.objectContaining({ kind: 'text', text: expect.stringContaining('host restarted') })])
 })
 
-it('creates an Executor Session under the bundle\'s worker preset, and the main Session under its router preset', async () => {
+it('creates an Executor Session on the standard preset (WORKER_PRESET), and the main Session under its router preset', async () => {
   const { sessionId } = await acceptedTicket()
   const created = controller.create.mock.calls.map(([options]) => options as { sessionId: string; agentPreset: string })
-  expect(created.find(options => options.sessionId === sessionId)).toMatchObject({ agentPreset: 'dsh-superagent-worker' })
+  expect(created.find(options => options.sessionId === sessionId)).toMatchObject({ agentPreset: WORKER_PRESET })
   expect(created.find(options => options.sessionId === runtime.masterId)).toMatchObject({ agentPreset: 'dsh-superagent-router' })
 })
 
@@ -1697,8 +1698,9 @@ it('selects its own preset again for a main Session or worker a person switched 
   presets.select.mockClear()
   emit(runtime.masterId, 'dsh-superagent-router'); await Promise.resolve()
   expect(presets.select).not.toHaveBeenCalled()
-  emit(sessionId, 'standard')
-  await vi.waitFor(() => expect(presets.select).toHaveBeenCalledWith(agents.get(sessionId), 'dsh-superagent-worker'))
+  // A worker's own preset is `standard` now, so that selection needs no restore; another one does.
+  emit(sessionId, 'plan')
+  await vi.waitFor(() => expect(presets.select).toHaveBeenCalledWith(agents.get(sessionId), WORKER_PRESET))
   // Another Session is not one of dsh-superagent's.
   presets.select.mockClear()
   emit('someone-else', 'standard'); emit('worker-nothing', 'standard'); await Promise.resolve()

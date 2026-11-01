@@ -44,8 +44,13 @@ export interface SessionsHost {
  */
 interface SessionBinding { disposers: (() => void)[]; scope?: Context; skills?: { revision: number; dispose: () => void }; subagent?: true }
 
-/** The agent presets Executor Sessions and the main Session are created with, which the bundle's patch defines. */
-export const WORKER_PRESET = 'dsh-superagent-worker', ROUTER_PRESET = 'dsh-superagent-router'
+/**
+ * The agent presets Executor Sessions and the main Session are created with. Workers run on DSH's `standard` preset —
+ * whose tool packages resolve from the host's own tree — narrowed to `WORK_TOOLS` by the registration below, which keeps
+ * the tool scope the bundle's patch defines for workers. The patch's own `dsh-superagent-worker` preset rows stay for
+ * deployments where the host resolves them (they add 5-second shell and job waits); `standard` is the portable default.
+ */
+export const WORKER_PRESET = 'standard', ROUTER_PRESET = 'dsh-superagent-router'
 declare module '@deepseek-ai/cordis' {
   interface Events {
     /** DSH's agent preset registry selected `agentPreset` for a Session. */
@@ -240,6 +245,14 @@ export class Sessions {
     this.retryHealth.restore(agent.id, agent.session.snapshotEvents())
     if (agent.status === 'idle') this.retryHealth.clear(agent.id)
     this.updateModelHealth()
+    // The session preset's tool plugins load asynchronously in the agent's context. A cold import can lose the race
+    // against this decoration, which would read no preset tools and restrict the worker to an empty allow list, so let
+    // the loader tree settle first. Bounded: a preset that never settles must not hold up the session.
+    const loader = (agent.ctx as { loader?: { await?: () => Promise<void> } }).loader
+    if (typeof loader?.await === 'function') {
+      await Promise.race([loader.await(), new Promise<void>(resolve => { const t = setTimeout(resolve, 20000); t.unref?.() })])
+    }
+    if (this.bindings.get(agent) !== binding) return
     // Disable variable interpolation so literal ${{ ... }} expressions in team prompts are preserved.
     binding.disposers.push(agent.ctx.systemPrompt.section({ name: 'dsh-superagent-policy', order: 9999, interpolate: false, text: context => {
       const version = this.promptFor(agent, context.signal !== undefined)
