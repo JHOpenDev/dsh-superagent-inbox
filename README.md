@@ -91,18 +91,8 @@ cd dsh-superagent-inbox
 pnpm install && pnpm check      # typecheck + 全部测试 + 构建 lib/
 ```
 
-1. 按 [SETUP.md](SETUP.md) 完成 dsh-superagent 的基础部署（仓库、GitHub 账号；GitHub 账号是 Worker 提交 PR 用的，若只跑 inbox 也可以配一个最小权限账号）。
-2. 在 profile 的 `cordis.patch.yml`（`$DSH_HOME/profiles/<profile>/`）中启用 inbox：
-
-```yaml
-- id: dsh-superagent
-  config:
-    stateDir: /home/me/.dsh/state/superagent
-- id: dsh-superagent-inbox
-  disabled: false
-```
-
-3. 重启 Harness，打开 **Superagent 侧边栏面板 → Sources → Local inbox**，配置：
+1. 插件安装后**零配置即可启动**：bundle 自带默认 `stateDir`（`~/.dsh/superagent-state`，跨平台自动计算；可用环境变量 `DSH_SUPERAGENT_STATE_DIR` 或在 profile 层覆盖）。
+2. 重启 Harness，打开 **Superagent 侧边栏面板**完成部署引导（仓库、GitHub 账号——Worker 提交 PR 用），然后在 **Sources → Local inbox** 配置：
    - `root`：收件箱根目录（绝对路径）
    - `conversations`：至少一个对话，如 `{ id: "ops", listen: "mentions" }`
 4. **Eval → On each Source → Local inbox**：把你自己（`from` 的值）加入 allowed 名单。

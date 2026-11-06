@@ -1,4 +1,5 @@
 /** Main plugin entry: mounts the Runtime and provides its restart callback for deployment account changes. */
+import { mkdirSync } from 'node:fs'
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-settings'
 import { Runtime } from './app/runtime.ts'
@@ -9,6 +10,9 @@ export const inject = ['agents', 'sessionController', 'sessionPersistence', 'wor
 export { Config }
 export async function apply(ctx: Context, config: DeploymentConfig): Promise<void> {
   const machine = machineOf(config)
+  // The bundle's default stateDir may not exist yet on a fresh install; create it when possible. A stateDir that
+  // cannot be created is the Runtime's error to report, so a failure here is not fatal.
+  try { mkdirSync(machine.stateDir, { recursive: true }) } catch { /* reported by the Runtime's own checks */ }
   // The management panel provides its own settings UI, so disable DSH's auto-generated settings page.
   ctx.inject(['settings'], child => { child.effect(() => child.settings.configure({ auto: false }, ctx.fiber)) })
   // Volatile limits update in place without a restart; account changes restart dsh-superagent. DSH's settings service stops
