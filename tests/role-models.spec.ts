@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
-import { agentEvents, installModelSelection, type Agent, type ModelSelection, type ModelSelectionRef } from '@deepseek-ai/dsh-agent'
+import { agentEvents, installModelSelection, type Agent, type ModelSelection } from '@deepseek-ai/dsh-agent'
 import { Session, SessionId } from '@deepseek-ai/dsh-session'
 import { ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 import { initializeRoleModel } from '../src/app/role-models.ts'
@@ -15,11 +15,22 @@ async function fixture() {
   ctx.reflect.provide('sessionPersistence', { flush })
   const session = Session.create(SessionId('role-model'))
   const agent = { ctx, session } as Agent
-  const host: ModelSelectionRef = { get current() { return session.requestHeader()?.config ?? { provider: 'host', model: 'default', reasoningEffort: ReasoningEffortId('high') } }, assembled: undefined }
-  installModelSelection(ctx, host)
+  // 0.2.2-rc.1: installModelSelection 只接 agentCtx（不再注宿主回退引用）。
+  // 用与旧 host.current 等价的桥接维持测试语义：显式 model/selection 胜出，
+  // 否则回退已记录的请求头，再回退宿主默认。先于 initializeRoleModel 安装，
+  // 使其运行在角色模型的 prepend 钩子之后（后者在飞行中胜出）。
+  let selection: ModelSelection | undefined
+  const fallback = { provider: 'host', model: 'default', reasoningEffort: ReasoningEffortId('high') }
+  ctx.on('session/event', (s, e) => { if (s === session && e.type === 'model/selection') selection = e.data as ModelSelection })
+  ctx.on('agent/request', async (_payload, next) => {
+    const result = await next()
+    const current = selection ?? session.requestHeader()?.config ?? fallback
+    return { ...result, ...current }
+  }, { prepend: true })
+  installModelSelection(ctx)
   const request = () => agentEvents(ctx, agent).waterfall('agent/request', { turn: 1, step: 1, signal: new AbortController().signal }, async () => ({ provider: 'seed', model: 'seed' }))
   const record = (selection: ModelSelection) => { const event = session.append('request/header', { header: { config: selection }, reason: 'initial' }); ctx.emit('session/event', session, event) }
-  return { ctx, agent, host, resolve, flush, request, record }
+  return { ctx, agent, resolve, flush, request, record }
 }
 it('keeps prompt variables and initial routing on the role model without saving the host default', async () => {
   const { ctx, agent, request, record, flush } = await fixture()
@@ -36,11 +47,10 @@ it('keeps prompt variables and initial routing on the role model without saving 
   expect(await request()).toEqual(selected)
 })
 it('lets a later explicit selection win without changing the in-flight assembled step', async () => {
-  const { ctx, agent, host, request } = await fixture()
+  const { ctx, agent, request } = await fixture()
   await initializeRoleModel(ctx, agent, { provider: 'worker', model: 'one' })
   await ctx.systemPrompt.assemble()
   const manual = { provider: 'manual', model: 'two', reasoningEffort: ReasoningEffortId('low') }
-  Object.defineProperty(host, 'current', { value: manual, configurable: true })
   const event = agent.session.append('model/selection', manual); ctx.emit('session/event', agent.session, event)
   expect(await request()).toEqual({ provider: 'worker', model: 'one' })
   await ctx.systemPrompt.assemble()

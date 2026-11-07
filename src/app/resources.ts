@@ -1,5 +1,6 @@
 /** Serves paginated context resources to orchestrator_read so large bodies stay out of model prompts until requested. */
-import type { SessionId } from '@deepseek-ai/dsh-session'
+import type { SessionEvent, SessionId } from '@deepseek-ai/dsh-session'
+import type { SessionWireEvent } from '@deepseek-ai/dsh-api-session-controller'
 import { UserError, key, latestReport, reached, runningAssignment, threadKey, type Ticket, type Trigger } from '../core/index.ts'
 import { batchOf, inputMessage, triggerMessage, workerSessionId } from '../executor/dsh.ts'
 import { readGithub } from '../sources/github-read.ts'
@@ -111,8 +112,20 @@ async function sourcePage(read: Read, source: string, fetch: () => Promise<unkno
 const THREAD_DECISIONS = 5
 const triggerLine = (trigger: Trigger) => ({ trigger_id: trigger.id, actor: trigger.actor.id, human: trigger.human, at: trigger.at,
   preview: preview(trigger.text), chars: trigger.text.length, read: `trigger/${trigger.id}` })
+/** Reads the worker Session's full event log through the cold-safe paged reader (backward pages; reordered oldest-first below). */
 async function transcript(host: ResourceHost, ticketId: string) {
-  return (await host.context.sessionController.inspect(workerSessionId(ticketId) as SessionId)).events
+  const controller = host.context.sessionController
+  const address = { kind: 'session' as const, sessionId: workerSessionId(ticketId) as SessionId }
+  const signal = new AbortController().signal
+  const events: SessionWireEvent[] = []
+  let beforeSeq: number | undefined
+  for (;;) {
+    const page = await controller.events({ address, ...(beforeSeq === undefined ? {} : { beforeSeq }) }, signal)
+    for (const record of page.records) if (record.type === 'event') events.push(record.event)
+    if (!page.hasMore) break
+    beforeSeq = page.cursor
+  }
+  return events.sort((a, b) => a.seq - b.seq) as unknown as SessionEvent[]
 }
 
 const ROUTES: readonly Route[] = [
