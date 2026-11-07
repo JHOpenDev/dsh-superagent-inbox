@@ -5,7 +5,7 @@
     - id: dsh-superagent
       name: dsh-superagent-inbox
       config:
-        stateDir: !!js process.env.DSH_SUPERAGENT_STATE_DIR || ((process.platform === 'win32' ? process.env.USERPROFILE : process.env.HOME) + '/.dsh/superagent-state')
+        stateDir: !!js process.env.DSH_SUPERAGENT_STATE_DIR || (process.env.HOME || process.env.USERPROFILE) + '/.dsh/superagent-state'
     - id: dsh-superagent-github
       name: dsh-superagent-inbox/github-watch
     # Optional Feishu Source; requires configuring a bot CLI after enabling.

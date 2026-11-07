@@ -2,7 +2,7 @@
   "name": "dsh-superagent-inbox",
   "author": "DeepSeek Harness Team <team@dsh.dev>",
   "license": "MIT",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "dsh-superagent + 本地收件箱 Source: drives the DeepSeek Harness super-agent from a plain folder of message files. File-inbox Source for the dsh-superagent prototype.",
   "type": "module",
   "main": "lib/index.js",
